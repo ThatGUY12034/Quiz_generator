@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QuizGenius — AI Quiz Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+
+<!-- ░░░ NAV ░░░ -->
+<nav class="nav">
+  <div class="nav-brand">Quiz<span>Genius</span></div>
+  <div class="nav-links">
+    <a href="#" onclick="showScreen('home')" class="nav-link">Home</a>
+    <a href="#how" class="nav-link">How it Works</a>
+  </div>
+</nav>
+
+<!-- ░░░ HOME SCREEN ░░░ -->
+<div id="screen-home" class="screen active">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg">
+      <div class="orb orb1"></div>
+      <div class="orb orb2"></div>
+      <div class="orb orb3"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">✦ Powered by Google Gemini 2.5</div>
+      <h1 class="hero-title">Generate Quizzes<br/><span>From Anything.</span></h1>
+      <p class="hero-sub">Enter a topic, paste your notes, or upload a PDF — get a full quiz in seconds. MCQ, True/False, Fill in the Blank.</p>
+      <button class="btn-hero" onclick="showScreen('create')">Start Generating →</button>
+    </div>
+    <div class="hero-visual">
+      <div class="card-float card-f1">
+        <div class="cf-label">MCQ</div>
+        <div class="cf-q">What is the powerhouse of the cell?</div>
+        <div class="cf-opts">
+          <span class="cf-opt correct">✓ Mitochondria</span>
+          <span class="cf-opt">Nucleus</span>
+        </div>
+      </div>
+      <div class="card-float card-f2">
+        <div class="cf-label">T/F</div>
+        <div class="cf-q">The speed of light is 3×10⁸ m/s</div>
+        <div class="cf-opts">
+          <span class="cf-opt correct">✓ True</span>
+        </div>
+      </div>
+      <div class="card-float card-f3">
+        <div class="cf-score">9/10</div>
+        <div class="cf-grade">Excellent!</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="how" id="how">
+    <h2 class="section-title">How It Works</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-icon">🔑</div>
+        <h3>Add API Key</h3>
+        <p>Add your Gemini API key in .env file or paste it in the form.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-icon">📝</div>
+        <h3>Add Content</h3>
+        <p>Type a topic, paste text/notes, or upload a PDF document.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-icon">⚡</div>
+        <h3>Generate</h3>
+        <p>AI instantly creates MCQ, True/False, and Fill-in-the-Blank questions.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-icon">🏆</div>
+        <h3>Take & Score</h3>
+        <p>Answer the quiz and get your score with detailed explanations.</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ░░░ CREATE SCREEN ░░░ -->
+<div id="screen-create" class="screen">
+  <div class="create-wrap">
+    <div class="create-header">
+      <button class="btn-back" onclick="showScreen('home')">← Back</button>
+      <h2>Create Your Quiz</h2>
+    </div>
+
+    <form id="quiz-form" class="quiz-form">
+
+      <!-- API Key - Manual entry (will be hidden if .env key exists) -->
+      <div id="api-key-container" class="form-section">
+        <label class="form-label">🔑 Google Gemini API Key <span class="req">*</span></label>
+        <input type="password" id="api-key" class="form-input" placeholder="AIzaSy..." required/>
+        <p class="form-hint">Get your free key at <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a> — never stored on the server.</p>
+      </div>
+
+      <!-- Show this when env key is configured -->
+      <div id="env-key-message" class="form-section" style="display: none; background: #e8f5e8; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <p style="color: #2e7d32; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 20px;">✅</span> Using Gemini API key from .env file
+        </p>
+        <p style="color: #666; margin: 8px 0 0 0; font-size: 14px;">No need to enter key in form</p>
+      </div>
+
+      <!-- Model Selection -->
+      <div class="form-section">
+        <label class="form-label">🧠 Select Model</label>
+        <select id="model-select" class="form-input" required>
+          <option value="">Loading models...</option>
+        </select>
+        <p class="form-hint">Choose from free Gemini 2.5 and Gemma models</p>
+      </div>
+
+      <!-- Input Type Tabs -->
+      <div class="form-section">
+        <label class="form-label">📥 Input Type</label>
+        <div class="tab-group" id="input-tabs">
+          <button type="button" class="tab active" data-tab="topic" onclick="switchTab('topic')">Topic</button>
+          <button type="button" class="tab" data-tab="text"  onclick="switchTab('text')">Text / Notes</button>
+          <button type="button" class="tab" data-tab="pdf"   onclick="switchTab('pdf')">PDF Upload</button>
+        </div>
+
+        <!-- Topic -->
+        <div id="tab-topic" class="tab-panel active">
+          <input type="text" id="topic-input" class="form-input" placeholder="e.g. Photosynthesis, World War II, Python programming..."/>
+        </div>
+
+        <!-- Text -->
+        <div id="tab-text" class="tab-panel">
+          <textarea id="text-input" class="form-textarea" rows="7" placeholder="Paste your notes, paragraph, or study material here..."></textarea>
+        </div>
+
+        <!-- PDF -->
+        <div id="tab-pdf" class="tab-panel">
+          <div class="upload-zone" id="upload-zone" onclick="document.getElementById('pdf-input').click()">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">Click to upload PDF</div>
+            <div class="upload-hint">Max 10MB</div>
+          </div>
+          <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handlePDF(event)"/>
+          <div id="pdf-status" class="pdf-status hidden"></div>
+          <textarea id="pdf-text" class="form-textarea hidden" rows="5" readonly placeholder="PDF preview will appear here..."></textarea>
+        </div>
+      </div>
+
+      <!-- Language Selection -->
+      <div class="form-section">
+        <label class="form-label">🌐 Language</label>
+        <select id="language-select" class="form-input">
+          <option value="English">English</option>
+          <option value="Spanish">Spanish</option>
+          <option value="French">French</option>
+          <option value="German">German</option>
+          <option value="Hindi">Hindi</option>
+          <option value="Chinese">Chinese</option>
+          <option value="Japanese">Japanese</option>
+        </select>
+      </div>
+
+      <!-- Settings Row -->
+      <div class="form-row">
+
+        <div class="form-section half">
+          <label class="form-label">🎯 Number of Questions</label>
+          <div class="pill-group" id="num-group">
+            <button type="button" class="pill" data-val="5"  onclick="setPill('num-group',this)">5</button>
+            <button type="button" class="pill active" data-val="10" onclick="setPill('num-group',this)">10</button>
+            <button type="button" class="pill" data-val="15" onclick="setPill('num-group',this)">15</button>
+            <button type="button" class="pill" data-val="20" onclick="setPill('num-group',this)">20</button>
+          </div>
+        </div>
+
+        <div class="form-section half">
+          <label class="form-label">📊 Difficulty</label>
+          <div class="pill-group" id="diff-group">
+            <button type="button" class="pill" data-val="Easy"   onclick="setPill('diff-group',this)">Easy</button>
+            <button type="button" class="pill active" data-val="Medium" onclick="setPill('diff-group',this)">Medium</button>
+            <button type="button" class="pill" data-val="Hard"   onclick="setPill('diff-group',this)">Hard</button>
+            <button type="button" class="pill" data-val="Expert" onclick="setPill('diff-group',this)">Expert</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Question Types -->
+      <div class="form-section">
+        <label class="form-label">❓ Question Types</label>
+        <div class="check-group">
+          <label class="check-item">
+            <input type="checkbox" name="qtype" value="mcq" checked/>
+            <span class="checkmark"></span>
+            Multiple Choice (MCQ)
+          </label>
+          <label class="check-item">
+            <input type="checkbox" name="qtype" value="truefalse"/>
+            <span class="checkmark"></span>
+            True / False
+          </label>
+          <label class="check-item">
+            <input type="checkbox" name="qtype" value="fillblank"/>
+            <span class="checkmark"></span>
+            Fill in the Blank
+          </label>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="btn-generate" id="generate-btn">
+        <span id="gen-text">⚡ Generate Quiz</span>
+        <span id="gen-loader" class="hidden">⏳ Generating...</span>
+      </button>
+
+      <div id="form-error" class="form-error hidden"></div>
+
+    </form>
+  </div>
+</div>
+
+<!-- ░░░ QUIZ SCREEN ░░░ -->
+<div id="screen-quiz" class="screen">
+  <div class="quiz-wrap">
+    <div class="quiz-topbar">
+      <div class="qtb-left">
+        <span id="quiz-topic-label" class="topic-tag"></span>
+      </div>
+      <div class="qtb-center">
+        <span id="q-counter">1 / 10</span>
+      </div>
+      <div class="qtb-right">
+        <div class="timer" id="timer">⏱ 00:00</div>
+      </div>
+    </div>
+
+    <div class="progress-track">
+      <div class="progress-fill" id="quiz-progress"></div>
+    </div>
+
+    <div id="question-area" class="question-area">
+      <div class="q-type-badge" id="q-type-badge">MCQ</div>
+      <h2 class="q-text" id="q-text"></h2>
+      <div id="q-options" class="q-options"></div>
+      <input type="text" id="fill-input" class="fill-input hidden" placeholder="Type your answer..."/>
+    </div>
+
+    <div class="quiz-nav">
+      <button class="btn-nav btn-prev" id="btn-prev" onclick="prevQuestion()" disabled>← Prev</button>
+      <div class="nav-dots" id="nav-dots"></div>
+      <button class="btn-nav btn-next" id="btn-next" onclick="nextQuestion()">Next →</button>
+    </div>
+
+    <button class="btn-submit" id="btn-submit" onclick="submitQuiz()" style="display:none">
+      🏁 Submit Quiz
+    </button>
+  </div>
+</div>
+
+<!-- ░░░ RESULTS SCREEN ░░░ -->
+<div id="screen-results" class="screen">
+  <div class="results-wrap">
+    <div class="results-hero">
+      <div class="score-ring">
+        <svg viewBox="0 0 120 120" class="ring-svg">
+          <circle cx="60" cy="60" r="54" class="ring-bg"/>
+          <circle cx="60" cy="60" r="54" class="ring-fill" id="ring-fill"/>
+        </svg>
+        <div class="score-center">
+          <div class="score-num" id="score-num">0</div>
+          <div class="score-den" id="score-den">/0</div>
+        </div>
+      </div>
+      <div class="results-info">
+        <div class="grade-badge" id="grade-badge">—</div>
+        <div class="results-pct" id="results-pct">0%</div>
+        <div class="results-time" id="results-time">Time: —</div>
+        <div class="results-feedback" id="results-feedback" style="font-size: 14px; color: #666; margin-top: 8px;"></div>
+      </div>
+    </div>
+
+    <div class="results-stats">
+      <div class="stat-box correct-box">
+        <div class="stat-num" id="stat-correct">0</div>
+        <div class="stat-label">Correct</div>
+      </div>
+      <div class="stat-box wrong-box">
+        <div class="stat-num" id="stat-wrong">0</div>
+        <div class="stat-label">Wrong</div>
+      </div>
+      <div class="stat-box skip-box">
+        <div class="stat-num" id="stat-skip">0</div>
+        <div class="stat-label">Skipped</div>
+      </div>
+    </div>
+
+    <h3 class="review-title">Answer Review</h3>
+    <div id="review-list" class="review-list"></div>
+
+    <div class="results-actions">
+      <button class="btn-action" onclick="retakeQuiz()">🔄 Retake Quiz</button>
+      <button class="btn-action btn-new" onclick="showScreen('create')">✨ New Quiz</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
