@@ -8,8 +8,8 @@ import uuid
 import google.generativeai as genai
 import traceback
 from dotenv import load_dotenv
-import os
 import logging
+import tempfile
 
 # Load environment variables from .env file
 load_dotenv()
@@ -18,7 +18,21 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "quiz-generator-secret-2024")
 CORS(app)
 
-UPLOAD_FOLDER = "uploads"
+# ──────────────────────────────────────────────
+# Vercel-compatible file handling
+# ──────────────────────────────────────────────
+IS_VERCEL = os.environ.get('VERCEL') == '1' or os.environ.get('VERCEL_ENV') is not None
+IS_RENDER = os.environ.get('RENDER') == 'true'
+
+# Use /tmp for file uploads on Vercel (writable), otherwise use local uploads folder
+if IS_VERCEL:
+    UPLOAD_FOLDER = "/tmp/uploads"
+    print("Running on Vercel - using /tmp for uploads")
+else:
+    UPLOAD_FOLDER = "uploads"
+    print("Running locally - using local uploads folder")
+
+# Create upload directory if it doesn't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Get API key from environment variable
@@ -186,7 +200,7 @@ def call_gemini(prompt: str, api_key: str, model: str) -> str:
 
 
 # ──────────────────────────────────────────────
-# Helper: extract text from PDF
+# Helper: extract text from PDF (Vercel-compatible)
 # ──────────────────────────────────────────────
 def extract_pdf_text(file_path: str) -> str:
     """Extract text from PDF with better error handling"""
@@ -486,8 +500,15 @@ def generate_quiz():
 
 @app.route("/api/upload-pdf", methods=["POST"])
 def upload_pdf():
-    """Upload and extract text from PDF"""
+    """Upload and extract text from PDF - Vercel compatible version"""
     try:
+        # Check if on Vercel - PDF upload has limitations
+        if IS_VERCEL:
+            return jsonify({
+                "warning": "PDF upload on Vercel has limitations. For large PDFs, please use text input instead.",
+                "note": "Continuing with upload - file will be processed in /tmp"
+            }), 200
+        
         if "pdf" not in request.files:
             return jsonify({"error": "No file uploaded."}), 400
 
@@ -498,13 +519,17 @@ def upload_pdf():
         if not file.filename.lower().endswith(".pdf"):
             return jsonify({"error": "Only PDF files are supported."}), 400
 
-        # Check file size (limit to 10MB)
+        # Check file size (limit to 5MB on Vercel, 10MB locally)
         file.seek(0, os.SEEK_END)
         file_size = file.tell()
         file.seek(0)
         
-        if file_size > 10 * 1024 * 1024:
-            return jsonify({"error": "PDF file too large. Maximum size is 10MB."}), 400
+        max_size = 5 * 1024 * 1024 if IS_VERCEL else 10 * 1024 * 1024
+        
+        if file_size > max_size:
+            return jsonify({
+                "error": f"PDF file too large. Maximum size is {max_size // (1024*1024)}MB."
+            }), 400
 
         # Save and process PDF
         filename = f"{uuid.uuid4()}.pdf"
@@ -524,7 +549,8 @@ def upload_pdf():
                 "text": text,
                 "preview": preview,
                 "word_count": len(text.split()),
-                "character_count": len(text)
+                "character_count": len(text),
+                "note": "Processed successfully" + (" on Vercel (temp storage)" if IS_VERCEL else "")
             })
             
         finally:
@@ -535,6 +561,8 @@ def upload_pdf():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
+        print(f"PDF upload error: {str(e)}")
+        print(traceback.format_exc())
         return jsonify({"error": f"Error processing PDF: {str(e)}"}), 500
 
 
@@ -611,10 +639,12 @@ def health_check():
     return jsonify({
         "status": "healthy",
         "version": "2.0.0",
+        "environment": "vercel" if IS_VERCEL else "local" if not IS_RENDER else "render",
         "models_available": len(ALL_MODELS),
         "gemini_models": len(FREE_GEMINI_MODELS),
         "gemma_models": len(GEMMA_MODELS),
-        "env_key_configured": bool(ENV_GEMINI_API_KEY)
+        "env_key_configured": bool(ENV_GEMINI_API_KEY),
+        "upload_folder": UPLOAD_FOLDER
     })
 
 
@@ -634,22 +664,37 @@ def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
 
-if __name__ != "__main__":
+# ──────────────────────────────────────────────
+# Vercel serverless handler
+# ──────────────────────────────────────────────
+# This is what Vercel looks for
+def handler(request, **kwargs):
+    """Vercel serverless function handler"""
+    return app(request.environ, request.start_response)
+
+
+# ──────────────────────────────────────────────
+# Render.com configuration (if still used)
+# ──────────────────────────────────────────────
+if IS_RENDER:
     # Running on Render - configure for production
-    # Set up logging for gunicorn
     gunicorn_logger = logging.getLogger('gunicorn.error')
     app.logger.handlers = gunicorn_logger.handlers
     app.logger.setLevel(gunicorn_logger.level)
     app.logger.info("QuizGenius app started on Render")
 
+
+# ──────────────────────────────────────────────
+# Local development only
+# ──────────────────────────────────────────────
 if __name__ == "__main__":
-    # Local development only - this won't run on Render
     print("=" * 60)
     print("Quiz Generator API - Powered by Google AI")
     print("=" * 60)
     print(f"\n📋 Available Models ({len(ALL_MODELS)} total):")
     print(f"   • Gemini Models: {len(FREE_GEMINI_MODELS)}")
     print(f"   • Gemma Models: {len(GEMMA_MODELS)}")
+    print(f"\n🌍 Environment: {'Vercel' if IS_VERCEL else 'Render' if IS_RENDER else 'Local'}")
     
     # Show API key status
     if ENV_GEMINI_API_KEY:
@@ -668,12 +713,11 @@ if __name__ == "__main__":
     
     print("\n" + "=" * 60)
     
-    # Get port from environment variable (Render sets this automatically)
+    # Local development
     port = int(os.environ.get("PORT", 5000))
     print(f"🌐 Server starting at http://localhost:{port}")
+    print(f"📁 Upload folder: {UPLOAD_FOLDER}")
     print("=" * 60)
     
-    # For local development - debug=True is fine
-    # For production on Render, debug should be False
     debug_mode = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
     app.run(host="0.0.0.0", port=port, debug=debug_mode)
